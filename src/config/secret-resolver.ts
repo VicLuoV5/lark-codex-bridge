@@ -20,7 +20,7 @@ import { isSecretRef, secretKeyForApp } from './schema';
  * The exec branch short-circuits when the provider command points at this
  * same bridge binary — we then read the AES keystore directly instead of
  * spawning ourselves (avoids fork bombs on misconfig, and keeps `bridge
- * start` working without `lark-channel-bridge` on $PATH).
+ * start` working without `feishu-codex-bridge` on $PATH).
  */
 
 const ENV_TEMPLATE_RE = /^\$\{([A-Z][A-Z0-9_]{0,127})\}$/;
@@ -107,7 +107,7 @@ async function resolveFileRef(ref: SecretRef, pc: ProviderConfig | undefined): P
  * tool at it.
  *
  * If the configured command IS this same bridge binary (a.k.a. bridge is
- * self-hosting via `lark-channel-bridge secrets get`), short-circuit and
+ * self-hosting via `feishu-codex-bridge secrets get`), short-circuit and
  * read the AES keystore directly. Keeps `bridge start` working even when
  * the bridge symlink isn't on $PATH, and avoids spawning ourselves on
  * every reconnect.

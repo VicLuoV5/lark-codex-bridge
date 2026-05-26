@@ -15,11 +15,13 @@ import { helpCard, resumeCard, statusCard, workspacesCard } from '../card/templa
 import type { AppConfig, MessageReplyMode, TenantBrand } from '../config/schema';
 import {
   getAgentStopGraceMs,
+  getCodexReasoningEffort,
   getMaxConcurrentRuns,
   getMessageReplyMode,
   getRequireMentionInGroup,
   getRunIdleTimeoutMs,
   getShowToolCalls,
+  isCodexReasoningEffort,
   isAdmin,
   secretKeyForApp,
 } from '../config/schema';
@@ -39,10 +41,11 @@ import { isAlive, readAndPrune, resolveTarget } from '../runtime/registry';
 import type { SessionStore } from '../session/store';
 import { validateAppCredentials } from '../utils/feishu-auth';
 import type { WorkspaceStore } from '../workspace/store';
+import { isInsideWorkspaceRoot, resolveWorkspacePath, workspaceRoot } from '../workspace/guard';
 import { createBoundChat, defaultChatName } from '../bot/group';
 
 export interface Controls {
-  /** Restart the bridge in-process: disconnect WS, kill claude runs, reload
+  /** Restart the bridge in-process: disconnect WS, kill agent runs, reload
    * config, reconnect with the new credentials. */
   restart(): Promise<void>;
   /** Stop this whole process gracefully (disconnect + exit). Used by /exit
@@ -88,7 +91,7 @@ type Handler = (args: string, ctx: CommandContext) => Promise<void>;
 
 const handlers: Record<string, Handler> = {
   '/new': handleNew,
-  '/reset': handleNew,
+  '/reset': handleReset,
   '/cd': handleCd,
   '/ws': handleWs,
   '/resume': handleResume,
@@ -197,19 +200,24 @@ function expandTilde(p: string): string {
 async function handleNew(args: string, ctx: CommandContext): Promise<void> {
   const trimmed = args.trim();
 
-  // /new chat [name]  — spin up a fresh group chat bound to a fresh session
-  if (trimmed === 'chat' || trimmed.startsWith('chat ')) {
-    const rawName = trimmed === 'chat' ? '' : trimmed.slice(5).trim();
-    return handleNewChat(rawName, ctx);
-  }
+  // Historical behavior: /new [name] spins up a fresh group chat bound to a
+  // fresh session. Keep /new chat [name] as a compatibility spelling.
+  const rawName = trimmed === 'chat'
+    ? ''
+    : trimmed.startsWith('chat ')
+      ? trimmed.slice(5).trim()
+      : trimmed;
+  return handleNewChat(rawName, ctx);
+}
 
+async function handleReset(_args: string, ctx: CommandContext): Promise<void> {
   const wasRunning = ctx.activeRuns.interrupt(ctx.scope);
   ctx.sessions.clear(ctx.scope);
   await reply(ctx, wasRunning ? '已中断当前任务并开始新会话。' : '已开始新会话。');
 }
 
 async function handleNewChat(rawName: string, ctx: CommandContext): Promise<void> {
-  const sourceCwd = ctx.workspaces.cwdFor(ctx.scope);
+  const sourceCwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   const name = rawName || defaultChatName();
 
   let created;
@@ -226,15 +234,11 @@ async function handleNewChat(rawName: string, ctx: CommandContext): Promise<void
   }
 
   // Inherit cwd from the originating chat so the new group starts in the
-  // same workspace; otherwise it'll fall back to $HOME.
-  if (sourceCwd) {
-    ctx.workspaces.setCwd(created.chatId, sourceCwd);
-  }
+  // same workspace.
+  ctx.workspaces.setCwd(created.chatId, sourceCwd);
 
   // Welcome the user inside the new group with a hint about how to start.
-  const welcome = sourceCwd
-    ? `🎉 群已建好，cwd 继承自原群：\`${sourceCwd}\`\n\n@我 + 任意消息开始对话。`
-    : '🎉 群已建好。\n\n@我 + 任意消息开始对话。';
+  const welcome = `🎉 群已建好，cwd 继承自原群：\`${sourceCwd}\`\n\n@我 + 任意消息开始对话。`;
   try {
     await ctx.channel.send(created.chatId, { markdown: welcome });
   } catch (err) {
@@ -250,14 +254,17 @@ async function handleNewChat(rawName: string, ctx: CommandContext): Promise<void
 async function handleCd(args: string, ctx: CommandContext): Promise<void> {
   const input = args.trim();
   if (!input) {
-    await reply(ctx, '用法：`/cd <绝对路径>` 或 `/cd ~/xxx`');
+    await reply(ctx, `用法：\`/cd <${workspaceRoot()} 下的路径>\``);
     return;
   }
-  if (!input.startsWith('/') && !input.startsWith('~')) {
-    await reply(ctx, '请使用绝对路径，或 `~/xxx` 表示 home 下的子路径。');
+  const absolute = resolveWorkspacePath(expandTilde(input));
+  if (!isInsideWorkspaceRoot(absolute)) {
+    await reply(
+      ctx,
+      `路径超出允许的工作根目录。\n\n允许根目录：\`${workspaceRoot()}\`\n请求路径：\`${absolute}\``,
+    );
     return;
   }
-  const absolute = expandTilde(input);
   try {
     const st = await stat(absolute);
     if (!st.isDirectory()) {
@@ -296,7 +303,7 @@ async function handleWs(args: string, ctx: CommandContext): Promise<void> {
 
 async function handleWsList(ctx: CommandContext): Promise<void> {
   const named = ctx.workspaces.listNamed();
-  const currentCwd = ctx.workspaces.cwdFor(ctx.scope);
+  const currentCwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   const card = workspacesCard(currentCwd, named);
   await ctx.channel.send(ctx.msg.chatId, { card }, { replyTo: ctx.msg.messageId });
 }
@@ -306,11 +313,7 @@ async function handleWsSave(name: string, ctx: CommandContext): Promise<void> {
     await reply(ctx, '用法：`/ws save <name>`');
     return;
   }
-  const cwd = ctx.workspaces.cwdFor(ctx.scope);
-  if (!cwd) {
-    await reply(ctx, '当前 chat 未设置 cwd，先用 `/cd` 设置再保存。');
-    return;
-  }
+  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   ctx.workspaces.saveNamed(name, cwd);
   await reply(ctx, `✓ 工作空间已保存：\`${name}\` → ${cwd}`);
 }
@@ -323,6 +326,13 @@ async function handleWsUse(name: string, ctx: CommandContext): Promise<void> {
   const cwd = ctx.workspaces.getNamed(name);
   if (!cwd) {
     await reply(ctx, `未找到工作空间：\`${name}\``);
+    return;
+  }
+  if (!isInsideWorkspaceRoot(cwd)) {
+    await reply(
+      ctx,
+      `工作空间 \`${name}\` 指向允许根目录外，已拒绝切换：\`${cwd}\``,
+    );
     return;
   }
   ctx.activeRuns.interrupt(ctx.scope);
@@ -356,7 +366,7 @@ async function handleResume(args: string, ctx: CommandContext): Promise<void> {
   const n = Number.parseInt(sub, 10);
   const limit = Number.isFinite(n) && n > 0 && n <= 20 ? n : 5;
 
-  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? homedir();
+  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   const sessions = await listRecentSessions(cwd, limit);
   const currentSession = ctx.sessions.getRaw(ctx.scope);
   const entries = sessions.map((s) => ({
@@ -371,7 +381,7 @@ async function handleResume(args: string, ctx: CommandContext): Promise<void> {
 }
 
 async function applyResume(sessionId: string, ctx: CommandContext): Promise<void> {
-  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? homedir();
+  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   ctx.activeRuns.interrupt(ctx.scope);
   ctx.sessions.set(ctx.scope, sessionId, cwd);
   await reply(
@@ -381,13 +391,14 @@ async function applyResume(sessionId: string, ctx: CommandContext): Promise<void
 }
 
 async function handleStatus(_args: string, ctx: CommandContext): Promise<void> {
-  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? homedir();
+  const cwd = ctx.workspaces.cwdFor(ctx.scope) ?? workspaceRoot();
   const sess = ctx.sessions.getRaw(ctx.scope);
   const card = statusCard({
     cwd,
     sessionId: sess?.sessionId,
     sessionStale: Boolean(sess && sess.cwd !== cwd),
     agentName: ctx.agent.displayName,
+    reasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
     scope: ctx.scope,
     chatMode: ctx.chatMode,
   });
@@ -551,14 +562,14 @@ async function handleReconnect(_args: string, ctx: CommandContext): Promise<void
   }
 }
 
-const DOCTOR_INSTRUCTIONS = `你是 lark-channel-bridge 的诊断助理。下面会给你两段输入:
+const DOCTOR_INSTRUCTIONS = `你是 feishu-codex-bridge 的诊断助理。下面会给你两段输入:
 1. 用户的故障描述
 2. 最近的运行日志(JSON line 格式,旧→新)
 
 日志字段含义:
 - ts: ISO 时间戳
 - level: info | warn | error
-- phase: 模块阶段。常见值: ws(WebSocket), intake(消息入站), queue(去抖队列), flush(批处理), media(附件下载), prompt(prompt 组装), session(会话), agent(claude 子进程), card(卡片渲染), comment(文档评论), cardAction(卡片回调), command(斜杠命令), sdk(飞书 SDK 内部)
+- phase: 模块阶段。常见值: ws(WebSocket), intake(消息入站), queue(去抖队列), flush(批处理), media(附件下载), prompt(prompt 组装), session(会话), agent(codex 子进程), card(卡片渲染), comment(文档评论), cardAction(卡片回调), command(斜杠命令), sdk(飞书 SDK 内部)
 - event: enter | exit | transition | fail | 各 phase 自定义事件
 - traceId: 同一逻辑操作的串联 ID(同一条消息的多个日志会共享)
 - chatId: 飞书聊天 ID(用 chatId 反查相关日志)
@@ -609,7 +620,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
     return;
   }
   // Scrub identifying / credential material before the logs (a) reach
-  // Anthropic via the agent prompt, and (b) end up in any card payload
+  // Codex via the agent prompt, and (b) end up in any card payload
   // Lark may cache server-side.
   const logs = sanitizeLogsForDoctor(rawLogs);
 
@@ -624,7 +635,8 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
   const prompt = buildDoctorPrompt(args, logs);
   const run = ctx.agent.run({
     prompt,
-    cwd: homedir(),
+    cwd: workspaceRoot(),
+    reasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
     stopGraceMs: getAgentStopGraceMs(ctx.controls.cfg),
   });
   const handle = ctx.activeRuns.register(ctx.scope, run);
@@ -653,7 +665,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
                 }
                 state = reduce(state, evt);
                 await flush();
-                // Don't wait for stdout to close — some claude versions hang
+                // Don't wait for stdout to close — some agent versions hang
                 // briefly post-result, which would leave the for-await stuck.
                 if (state.terminal !== 'running') break;
               }
@@ -831,7 +843,7 @@ async function submitAccount(ctx: CommandContext): Promise<void> {
 
     // Encrypted-at-rest path: store the plaintext secret in the AES keystore,
     // and write config.json with an exec-provider SecretRef instead of the
-    // raw secret. lark-cli's `config bind --source lark-channel` reads the
+    // raw secret. lark-cli's `config bind --source feishu-codex-bridge` reads the
     // same SecretRef and goes through the exec protocol to retrieve the
     // plaintext into its own OS keychain — no plaintext on disk.
     let newCfg: AppConfig;
@@ -896,6 +908,7 @@ async function showConfigForm(ctx: CommandContext): Promise<void> {
     showToolCalls: getShowToolCalls(ctx.controls.cfg),
     maxConcurrentRuns: getMaxConcurrentRuns(ctx.controls.cfg),
     runIdleTimeoutMinutes: ms ? Math.round(ms / 60_000) : 0,
+    codexReasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
     requireMentionInGroup: getRequireMentionInGroup(ctx.controls.cfg),
     allowedUsers: (access.allowedUsers ?? []).join(', '),
     allowedChats: (access.allowedChats ?? []).join(', '),
@@ -958,6 +971,14 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
   if (rawRequireMention === 'yes') requireMentionInGroup = true;
   else if (rawRequireMention === 'no') requireMentionInGroup = false;
   else requireMentionInGroup = getRequireMentionInGroup(ctx.controls.cfg);
+
+  const rawReasoningEffort = String(fv.codex_reasoning_effort ?? '').trim();
+  let codexReasoningEffort = getCodexReasoningEffort(ctx.controls.cfg);
+  if (rawReasoningEffort === 'default') {
+    codexReasoningEffort = undefined;
+  } else if (isCodexReasoningEffort(rawReasoningEffort)) {
+    codexReasoningEffort = rawReasoningEffort;
+  }
 
   // Parse access lists. Comma-separated; trim each, drop empties, dedupe.
   // Empty list = unrestricted (back-compat).
@@ -1044,6 +1065,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       showToolCalls,
       maxConcurrentRuns,
       runIdleTimeoutMinutes,
+      codexReasoningEffort,
       requireMentionInGroup,
       // Empty arrays serialize fine but read identically to omitted ones
       // (isUserAllowed / isAdmin both treat length===0 as unrestricted).
@@ -1065,6 +1087,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       showToolCalls,
       maxConcurrentRuns,
       runIdleTimeoutMinutes,
+      codexReasoningEffort: codexReasoningEffort ?? 'default',
       requireMentionInGroup,
       allowedUsersCount: allowedUsers.length,
       allowedChatsCount: allowedChats.length,
@@ -1079,6 +1102,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
         showToolCalls,
         maxConcurrentRuns,
         runIdleTimeoutMinutes,
+        codexReasoningEffort,
         requireMentionInGroup,
         allowedUsers: allowedUsers.join(', '),
         allowedChats: allowedChats.join(', '),

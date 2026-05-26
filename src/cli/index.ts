@@ -20,8 +20,8 @@ import { runStart } from './commands/start';
 const program = new Command();
 
 program
-  .name('lark-channel-bridge')
-  .description('Bridge Feishu/Lark messenger with local CLI coding agents')
+  .name('feishu-codex-bridge')
+  .description('Bridge Feishu/Lark messenger with local Codex')
   .version(pkg.version, '-v, --version');
 
 // === process-level commands (work directly on bridge processes) ===
@@ -89,11 +89,11 @@ program
 
 const secrets = program
   .command('secrets')
-  .description('Manage the bridge\'s encrypted secret keystore (~/.lark-channel/secrets.enc)');
+  .description('Manage the bridge\'s encrypted secret keystore (~/.feishu-codex-bridge/secrets.enc)');
 
 secrets
   .command('get')
-  .description('Exec-provider protocol: read JSON request from stdin, write JSON response to stdout. Used by lark-cli config bind --source lark-channel.')
+  .description('Exec-provider protocol: read JSON request from stdin, write JSON response to stdout. Used by lark-cli config bind --source feishu-codex-bridge.')
   .action(async () => {
     await runSecretsGet();
   });

@@ -40,5 +40,5 @@ export async function createBoundChat(opts: CreateBoundChatOptions): Promise<Cre
 export function defaultChatName(): string {
   const d = new Date();
   const pad = (n: number): string => `${n}`.padStart(2, '0');
-  return `Claude · ${d.getMonth() + 1}-${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `Codex · ${d.getMonth() + 1}-${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

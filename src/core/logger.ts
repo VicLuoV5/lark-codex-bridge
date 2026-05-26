@@ -29,7 +29,7 @@ const STDOUT_INFO_ALLOWLIST = new Set<string>([
  * Structured logger.
  *
  * Two destinations on every call:
- *  1. JSON line into `~/.lark-channel/logs/YYYY-MM-DD.log` — the durable
+ *  1. JSON line into `~/.feishu-codex-bridge/logs/YYYY-MM-DD.log` — the durable
  *     record `/doctor` greps over.
  *  2. Compact human-readable line on stdout/stderr — for live tailing in dev.
  *
@@ -240,11 +240,11 @@ export function newTraceId(): string {
 
 /**
  * Scrub a log buffer of identifying / credential material before it leaves
- * the local machine — specifically, before /doctor feeds it to Claude (the
- * Anthropic API will see it) and before the analysis card lands in a
+ * the local machine — specifically, before /doctor feeds it to the agent (the
+ * agent prompt will see it) and before the analysis card lands in a
  * Feishu chat (the Lark server may cache card contents).
  *
- * Conservative: keeps log structure intact so Claude can still correlate by
+ * Conservative: keeps log structure intact so the agent can still correlate by
  * traceId / phase / event. Only the *values* of identifying fields shrink
  * to a last-6-char suffix, and known credential fields become [REDACTED].
  *

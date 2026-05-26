@@ -17,7 +17,7 @@ export interface PlistInputs {
   /** Absolute path to the bridge CLI entry (the file currently executing). */
   bridgeEntryPath: string;
   /** PATH for the daemon process — captured from current shell so child
-   * tools (lark-cli, claude) can be resolved by name. launchd defaults
+   * tools (lark-cli, codex) can be resolved by name. launchd defaults
    * to a very minimal PATH otherwise. */
   envPath: string;
 }

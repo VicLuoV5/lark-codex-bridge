@@ -1,10 +1,10 @@
 import { log } from '../core/logger';
 
 /**
- * FIFO concurrency cap for claude runs. Especially useful in topic-group
+ * FIFO concurrency cap for Codex runs. Especially useful in topic-group
  * scenarios where each topic spawns its own run — without a cap, a single
- * busy group could trivially explode to dozens of concurrent claude
- * subprocesses, drowning RAM and Anthropic API rate limit.
+ * busy group could trivially explode to dozens of concurrent Codex
+ * subprocesses, drowning RAM and model-side limits.
  *
  * Use:
  *   const pool = new ProcessPool();

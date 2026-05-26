@@ -10,7 +10,7 @@ const RESET = '\x1b[0m';
 const MANUAL_INSTALL_HINT = [
   '手动安装命令:',
   `  ${BOLD}npm install -g @larksuite/cli${RESET}`,
-  `  ${BOLD}lark-cli config bind --source lark-channel --identity bot-only${RESET}`,
+  `  ${BOLD}lark-cli config bind --source feishu-codex-bridge --identity bot-only${RESET}`,
   '',
   '完整文档: https://github.com/larksuite/cli',
 ].join('\n');
@@ -35,7 +35,7 @@ async function checkLarkCli(opts: PreFlightOptions): Promise<void> {
       '',
       'ℹ️  lark-cli 未安装',
       '',
-      'lark-cli 是飞书的命令行工具,装上后 Claude 可以:',
+      'lark-cli 是飞书的命令行工具,装上后 Codex 可以:',
       '  • 主动发送交互卡片 / 表单',
       '  • 查询日历、文档、待办、OKR、考勤',
       '  • 200+ 飞书 API 命令',
@@ -77,7 +77,7 @@ async function checkLarkCli(opts: PreFlightOptions): Promise<void> {
   sBind.start('Binding to bridge credentials');
   const bindResult = await runCapture(
     'lark-cli',
-    ['config', 'bind', '--source', 'lark-channel', '--identity', 'bot-only'],
+    ['config', 'bind', '--source', 'feishu-codex-bridge', '--identity', 'bot-only'],
     BIND_TIMEOUT_MS,
   );
   if (!bindResult.success) {
@@ -87,7 +87,7 @@ async function checkLarkCli(opts: PreFlightOptions): Promise<void> {
     }
     p.outro('lark-cli 已装,但自动 bind 失败');
     console.log(
-      `请手动执行:\n  ${BOLD}lark-cli config bind --source lark-channel --identity bot-only${RESET}\n`,
+      `请手动执行:\n  ${BOLD}lark-cli config bind --source feishu-codex-bridge --identity bot-only${RESET}\n`,
     );
     return;
   }
@@ -105,11 +105,11 @@ function printInstallFailedWarning(): void {
       '',
       '原因可能是:网络不通 / npm 全局安装无权限 / registry 异常',
       '',
-      'Bridge 仍会继续启动,但 Claude 工具调用会受限。',
+      'Bridge 仍会继续启动,但 Codex 工具调用会受限。',
       '请手动执行:',
       '',
       `  ${BOLD}npm install -g @larksuite/cli${RESET}`,
-      `  ${BOLD}lark-cli config bind --source lark-channel --identity bot-only${RESET}`,
+      `  ${BOLD}lark-cli config bind --source feishu-codex-bridge --identity bot-only${RESET}`,
       '',
       '完整文档: https://github.com/larksuite/cli',
       '装完之后无需重启 bridge(它只在启动时检测一次)。',
@@ -120,9 +120,8 @@ function printInstallFailedWarning(): void {
 
 function isLarkCliInstalled(): boolean {
   try {
-    const result = spawnSync('lark-cli', ['--version'], {
+    const result = spawnSync(commandFor('lark-cli', ['--version']).cmd, commandFor('lark-cli', ['--version']).args, {
       stdio: ['ignore', 'ignore', 'ignore'],
-      shell: process.platform === 'win32',
     });
     return result.status === 0;
   } catch {
@@ -151,9 +150,10 @@ async function runCapture(
   let timedOut = false;
 
   const exitCode = await new Promise<number | null>((resolve) => {
-    const child = spawn(cmd, args, {
+    const command = commandFor(cmd, args);
+    const child = spawn(command.cmd, command.args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: onWindows,
+      windowsHide: onWindows,
     });
     child.stdout?.on('data', (b: Buffer) => {
       captured += b.toString('utf8');
@@ -178,4 +178,15 @@ async function runCapture(
   });
 
   return { success: !timedOut && exitCode === 0, output: captured };
+}
+
+function commandFor(cmd: string, args: string[]): { cmd: string; args: string[] } {
+  if (process.platform !== 'win32') return { cmd, args };
+  const command = [cmd, ...args].map(quoteCmdArg).join(' ');
+  return { cmd: process.env.ComSpec ?? 'cmd.exe', args: ['/d', '/s', '/c', command] };
+}
+
+function quoteCmdArg(arg: string): string {
+  if (/^[A-Za-z0-9_./:=+-]+$/.test(arg)) return arg;
+  return `"${arg.replace(/(["^&|<>()%])/g, '^$1')}"`;
 }

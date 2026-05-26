@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+onlyBuiltDependencies:
+  - esbuild
+  - protobufjs

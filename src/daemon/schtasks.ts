@@ -23,7 +23,7 @@ export interface LauncherInputs {
  * Generate the .cmd wrapper script that the scheduled task actually invokes.
  *
  * schtasks `/TR` can accept a direct command, but we need stdout/stderr
- * redirection + a PATH override so child tools (lark-cli, claude) resolve
+ * redirection + a PATH override so child tools (lark-cli, codex) resolve
  * correctly when the daemon runs under Task Scheduler. A `.cmd` script
  * is the natural place for both.
  *
@@ -35,7 +35,15 @@ export function buildLauncherCmd(inputs: LauncherInputs): string {
   return [
     '@echo off',
     `set "PATH=${inputs.envPath}"`,
+    'set "BRIDGE_WATCHDOG_SECONDS=60"',
+    ':watchdog',
+    `>> "${daemonStdoutPath()}" echo [bridge-watchdog] starting bridge %DATE% %TIME%`,
     `"${inputs.nodePath}" "${inputs.bridgeEntryPath}" run >> "${daemonStdoutPath()}" 2>> "${daemonStderrPath()}"`,
+    'set "BRIDGE_EXIT_CODE=%ERRORLEVEL%"',
+    'if "%BRIDGE_EXIT_CODE%"=="0" exit /b 0',
+    `>> "${daemonStdoutPath()}" echo [bridge-watchdog] bridge exited with code %BRIDGE_EXIT_CODE%, restart in %BRIDGE_WATCHDOG_SECONDS% seconds`,
+    'timeout /t 60 /nobreak >nul',
+    'goto watchdog',
     '',
   ].join('\r\n');
 }

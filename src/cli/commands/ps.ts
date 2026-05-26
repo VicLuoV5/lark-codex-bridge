@@ -32,13 +32,13 @@ export function runPs(): void {
 
 export async function runKillCli(target: string | undefined): Promise<void> {
   if (!target) {
-    console.error('用法: lark-channel-bridge kill <bot id 或序号>');
+    console.error('用法: feishu-codex-bridge kill <bot id 或序号>');
     process.exit(1);
   }
   const entry = resolveTarget(target);
   if (!entry) {
     console.error(`✗ 没找到匹配的 bot:${target}`);
-    console.error('  用 `lark-channel-bridge ps` 看可选目标。');
+    console.error('  用 `feishu-codex-bridge ps` 看可选目标。');
     process.exit(1);
   }
   console.log(`正在关闭 bot ${entry.id}…`);

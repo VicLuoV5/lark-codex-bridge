@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const appDir = join(homedir(), '.lark-channel');
+const appDir = join(homedir(), '.feishu-codex-bridge');
 
 export const paths = {
   appDir,

@@ -7,7 +7,7 @@ import { paths } from '../config/paths';
  * unit name. Single-instance for now; if we ever support multiple bots
  * per machine the suffix can grow `.{appid}` without breaking installs.
  */
-export const SERVICE_NAME = 'lark-channel-bridge.bot';
+export const SERVICE_NAME = 'feishu-codex-bridge.bot';
 
 // === macOS launchd ===
 
@@ -39,10 +39,10 @@ export function systemdUnitPath(): string {
 
 /**
  * schtasks task name. Backslashes turn into Task Scheduler "folders" so
- * `LarkChannelBridge\Bot` would create a Bot task under a LarkChannelBridge
+ * `FeishuCodexBridge\Bot` would create a Bot task under a FeishuCodexBridge
  * folder. We keep it flat for now.
  */
-export const WINDOWS_TASK_NAME = 'LarkChannelBridge.Bot';
+export const WINDOWS_TASK_NAME = 'FeishuCodexBridge.Bot';
 
 /**
  * The wrapper .cmd script schtasks invokes. schtasks `/TR` accepts a
@@ -57,7 +57,7 @@ export function windowsLauncherCmdPath(): string {
 
 /**
  * Daemon stdout/stderr go alongside the bridge's own structured logs in
- * `~/.lark-channel/logs/` so users only need to remember one path. Filenames
+ * `~/.feishu-codex-bridge/logs/` so users only need to remember one path. Filenames
  * are `daemon-*` to keep them distinct from the rolling per-day JSON files.
  */
 export function daemonLogDir(): string {

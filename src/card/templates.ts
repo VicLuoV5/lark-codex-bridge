@@ -1,3 +1,5 @@
+import type { CodexReasoningEffort } from '../config/schema';
+
 interface ButtonSpec {
   text: string;
   value: Record<string, unknown>;
@@ -66,6 +68,7 @@ export interface StatusInfo {
   sessionId?: string;
   sessionStale: boolean;
   agentName: string;
+  reasoningEffort?: CodexReasoningEffort;
   /** Session scope (= chatId or chatId:threadId in topic groups). */
   scope: string;
   /** Chat mode — used to label scope. */
@@ -77,7 +80,7 @@ export function statusCard(info: StatusInfo): object {
     ? `\`${info.sessionId.slice(0, 8)}…\`${info.sessionStale ? ' ⚠️ 旧 cwd，下一条会新建' : ''}`
     : '(无)';
   // For topic groups, surface that the scope is per-topic so the user
-  // knows /cd / /new only affect this topic.
+  // knows /cd / /reset only affect this topic.
   const scopeLine =
     info.chatMode === 'topic'
       ? `\`${escapeCode(info.scope)}\` _（话题独立 session）_`
@@ -87,12 +90,14 @@ export function statusCard(info: StatusInfo): object {
     `📁 **cwd**: \`${escapeCode(info.cwd)}\``,
     `🔗 **session**: ${sessionLine}`,
     `🤖 **agent**: ${escapeMd(info.agentName)}`,
+    `🧠 **reasoning**: ${info.reasoningEffort ? `\`${info.reasoningEffort}\`` : '(继承 Codex 配置)'}`,
   ];
   return shell('📊 当前状态', [
     divMd(lines.join('\n')),
     HR,
     actions([
-      { text: '🆕 新会话', value: { cmd: 'new' }, style: 'primary' },
+      { text: '🆕 新建群', value: { cmd: 'new' }, style: 'primary' },
+      { text: '♻️ 重置会话', value: { cmd: 'reset' } },
       { text: '🔁 恢复会话', value: { cmd: 'resume' } },
       { text: '📂 工作空间', value: { cmd: 'ws.list' } },
       { text: '💡 帮助', value: { cmd: 'help' } },
@@ -147,8 +152,8 @@ export function helpCard(): object {
       [
         '**命令列表**',
         '',
-        '- `/new` `/reset` — 清空当前 chat 的会话',
-        '- `/new chat [name]` — 新建群+新会话，自动拉你进群',
+        '- `/new [name]` — 新建群+新会话，继承当前 cwd，自动拉你进群',
+        '- `/reset` — 清空当前 chat 的会话，下一条消息重新开始',
         '- `/resume [N]` — 列出并恢复历史会话（最多 N 条）',
         '- `/cd <path>` — 切换工作目录（会重置 session）',
         '- `/ws list|save <name>|use <name>|remove <name>` — 工作空间',
@@ -160,10 +165,10 @@ export function helpCard(): object {
         '- `/ps` — 列出本机所有 bot,标识当前正在回复的那个',
         '- `/exit <id|#>` — 关掉指定 bot(用 `/ps` 看 id/序号)',
         '- `/reconnect` — 强制重连 WebSocket(网络抖动后 bot 没反应时用)',
-        '- `/doctor [描述]` — 把日志和描述喂给 Claude 自助诊断',
+        '- `/doctor [描述]` — 把日志和描述喂给 Codex 自助诊断',
         '- `/help` — 本帮助',
         '',
-        '其他内容直接交给 Claude。',
+        '其他内容直接交给 Codex。',
       ].join('\n'),
     ),
     HR,
@@ -171,7 +176,7 @@ export function helpCard(): object {
       { text: '📊 状态', value: { cmd: 'status' }, style: 'primary' },
       { text: '🔁 恢复会话', value: { cmd: 'resume' } },
       { text: '📂 工作空间', value: { cmd: 'ws.list' } },
-      { text: '🆕 新会话', value: { cmd: 'new' } },
+      { text: '🆕 新建群', value: { cmd: 'new' } },
     ]),
   ]);
 }

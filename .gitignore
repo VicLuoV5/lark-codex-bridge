@@ -8,11 +8,17 @@ coverage/
 .env.local
 .env.*.local
 .npmrc
+*.local.*
 
 .DS_Store
 .idea/
 .vscode/
 
-# Internal-only: dev smoke scripts and full changelog stay local, do not ship
+# Internal-only: local Codex instructions, status notes, generated reports,
+# dev smoke scripts, and full changelog stay local.
+AGENTS.md
+AGENTS.override.md
+dashboard.md
+outputs/
 scripts/
 CHANGELOG.md

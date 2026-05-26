@@ -1,198 +1,195 @@
-# lark-channel-bridge
+# feishu-codex-bridge
 
-把飞书 / Lark 消息和本地 Claude Code CLI 打通的轻量 bot，用一条命令起服务，扫码绑应用，在飞书里和 Claude 对话、让它读图 / 改代码。
+把飞书 / Lark 聊天消息转发给本机 Codex CLI 的本地 bot。适合已经在本机登录并使用 Codex CLI，希望从飞书聊天里触发同一套本地 Codex 能力的个人或小团队。
 
 [English README](./README.md)
 
-关于能实现的效果，详情可以阅读[飞书文档](https://larkcommunity.feishu.cn/docx/OaRIdFIRFoLM3xxTmKwcetHqn5e)
+本项目参考了 `zarazhangrui/feishu-claude-code-bridge` 的架构，agent 层改为 Codex CLI，本地状态目录改为 `~/.feishu-codex-bridge`。
 
-## 能干什么
+## 当前状态
 
-- 在飞书（私聊直接发；群里 `@bot`）把消息转给本地的 `claude` CLI，Claude 在你指定的工作目录里工作
-- **流式卡片**：Claude 的文本和工具调用实时出现在同一张卡片上，不用傻等
-- **会话延续**：每个 chat 独立 session，对话能接着上次说
-- **抢占 + 批处理**：中途发新消息会打断旧任务；快速连发几条会合并成一次请求
-- **多工作空间**：`/ws` 切换不同项目，session 自己重置
-- **图片 / 文件**：直接发给 bot，Claude 会读本地下载的文件路径
-- **卡片按钮**：`/help` `/ws list` `/status` 返回交互卡片，点按钮直接操作
+这是从个人自用部署整理出的开源 alpha。个人使用和小团队使用已经比较顺手，但邀请进大群或长期无人值守前，请先检查安全边界和访问控制。
+
+本项目不需要 OpenAI API key，也不需要 Claude API key。Codex 通过本机 Codex CLI 登录态运行。
+
+## 功能
+
+- 把飞书 / Lark 消息发送给本机 `codex exec`。
+- 每个 chat 或话题维护独立 Codex session。
+- 支持轻量流式 markdown 卡片，也支持跑完后一次性发文本。
+- `/new [name]` 创建新群、新会话，并继承当前工作目录。
+- `/reset` 清空当前 chat 会话。
+- `/cd` 和 `/ws` 切换、保存工作空间。
+- 下载聊天里的图片和文件，把本地路径交给 Codex。
+- `/config` 配置访问控制、回复模式、并发、run 探活和 Codex reasoning effort。
+- 支持前台运行，也支持 OS 托管后台运行。
 
 ## 前置条件
 
-- Node.js **≥ 20**
-- `claude` CLI 已安装并登录：https://docs.anthropic.com/en/docs/claude-code/quickstart
-- 一个飞书 / Lark PersonalAgent 应用（首次启动的扫码向导能帮你创建）
+- Node.js 20 或更新版本。
+- 本机 Codex CLI 可用且已登录。先在普通终端运行 `codex login`。
+- 一个飞书 / Lark PersonalAgent 应用。
+- 能访问 OpenAI/Codex 以及飞书 / Lark 开放平台网络。
+
+首次运行可以通过二维码向导创建或绑定应用。`lark-cli` 不是普通聊天的硬依赖，但建议安装；Codex 需要操作飞书文档、消息、日历等 API 时会用到它。
 
 ## 安装
 
-```bash
-npm i -g lark-channel-bridge
-# 或
-pnpm add -g lark-channel-bridge
-```
-
-## 首次启动
+npm 发布后：
 
 ```bash
-lark-channel-bridge run
+npm i -g feishu-codex-bridge
+feishu-codex-bridge --version
 ```
 
-第一次跑会检测到没配置应用，**自动进入扫码向导**：
+从源码运行：
 
-1. 终端渲染一个二维码
-2. 用飞书 App 扫码
-3. 选择 / 创建 PersonalAgent 应用
-4. 成功后凭据写入 `~/.lark-channel/config.json`
-
-## 命令速查
-
-### 宿主 CLI
-
-**进程层**（在你自己的 shell 里直接跑 bridge）:
-
-```
-lark-channel-bridge run [-c <config>]     前台启动 bot
-lark-channel-bridge ps                    列出本机所有正在跑的 bridge 进程
-lark-channel-bridge kill <id|#>           kill 指定 bridge 进程（SIGTERM，2s 后 SIGKILL）
-lark-channel-bridge --help                列所有命令
+```bash
+corepack enable
+corepack pnpm install
+corepack pnpm build
+node bin/feishu-codex-bridge.mjs --help
 ```
 
-**服务层**（让 OS 在后台托管 bridge）:
+## 首次运行
 
-> ⚠️ **服务层命令必须先全局安装,不能直接用 npx**。daemon 的 launchd plist / systemd unit / Windows 任务里会**硬编码** bridge CLI 的路径;通过 `npx lark-channel-bridge start` 调用时,这条路径在 npm 的临时缓存里(`~/.npm/_npx/<hash>/...`),会被 GC 清掉 — 一旦缓存清理,daemon 就起不来了。请先 `npm install -g lark-channel-bridge`,再 `lark-channel-bridge start`。`bridge run` 用 npx 调用没问题(单次进程)。
+前台启动：
 
-```
-lark-channel-bridge start                 注册（如需）+ 启动后台 daemon
-lark-channel-bridge stop                  停止 daemon 并关闭开机自启
-lark-channel-bridge restart               重启 daemon
-lark-channel-bridge status                查看 daemon 状态（pid、日志路径、上次退出码）
-lark-channel-bridge unregister            撤销注册（停止 + 删除服务定义文件）
+```bash
+feishu-codex-bridge run
 ```
 
-daemon 崩溃会被自动拉起，用户登录时也会自动启动。平台映射:
-- **macOS** → `launchd` 用户代理 `~/Library/LaunchAgents/ai.lark-channel-bridge.bot.plist`
-- **Linux** → `systemd` 用户单元 `~/.config/systemd/user/lark-channel-bridge.bot.service`。要让 daemon 在退出登录后还能跑，执行一次 `loginctl enable-linger $USER`。
-- **Windows** → Task Scheduler 任务 `LarkChannelBridge.Bot`，触发条件为 ONLOGON。启动脚本位于 `~/.lark-channel/daemon-launcher.cmd`。
+源码目录里也可以这样跑：
 
-daemon 的 stdout / stderr 写到 `~/.lark-channel/logs/daemon-stdout.log` 和 `daemon-stderr.log`，跟 bridge 自己的每日结构化日志放在同一个目录。
+```bash
+node bin/feishu-codex-bridge.mjs run
+```
 
-> 多开同一个 app 时，开放平台会把事件随机推到其中一个长连接。`run` 启动前会检测同 app 已有的进程，TTY 下提示 `[c]ontinue / [k]ill old / [a]bort` 三选；非 TTY 只 warn 并继续。
+首次运行会创建 `~/.feishu-codex-bridge/config.json`。如果没有应用凭据，会进入二维码注册向导。新的 App Secret 会立即迁移到本地加密 keystore：`~/.feishu-codex-bridge/secrets.enc`。
 
-### 在飞书里用的斜杠命令
+终端提示开始监听后，私聊 bot：
+
+```text
+/status
+Reply exactly OK
+```
+
+## 飞书 / Lark 应用配置
+
+请在开放平台后台确认权限和事件。bridge 连接成功但 bot 不回复，最常见原因就是这里缺配置。
+
+必需权限：
+
+- `im:message`
+- `im:message:send_as_bot`
+- `im:resource`
+- `im:chat`，`/new` 创建群需要
+- `drive:drive`，云文档评论处理需要
+
+长连接事件订阅：
+
+- `im.message.receive_v1`
+- `card.action.trigger`
+- `drive.notice.comment_add_v1`，云文档评论需要
+
+可选事件：
+
+- `im.message.reaction.created_v1`
+- `im.message.reaction.deleted_v1`
+- `im.chat.member.bot.added_v1`
+
+## 宿主 CLI
+
+前台进程命令：
+
+```bash
+feishu-codex-bridge run [-c <config>]
+feishu-codex-bridge ps
+feishu-codex-bridge kill <id|#>
+```
+
+后台服务命令：
+
+```bash
+feishu-codex-bridge start
+feishu-codex-bridge stop
+feishu-codex-bridge restart
+feishu-codex-bridge status
+feishu-codex-bridge unregister
+```
+
+服务后端：
+
+- macOS：用户级 `launchd`，带 `KeepAlive`。
+- Linux：用户级 `systemd`，带 `Restart=always`。
+- Windows：Task Scheduler 任务，加 `.cmd` launcher；bridge 异常退出后 60 秒重启，正常退出不重启。
+
+不要用同一个飞书 / Lark 应用启动多个 bridge。开放平台长连接事件可能随机投递给其中一个进程。
+
+## 飞书斜杠命令
 
 | 命令 | 作用 |
 |---|---|
-| `/new` `/reset` | 清空当前 chat 的会话 |
-| `/cd <path>` | 切换工作目录（会重置 session） |
-| `/ws list` | 列所有命名工作空间（卡片 + 按钮） |
-| `/ws save <name>` | 把当前 cwd 存为命名工作空间 |
-| `/ws use <name>` | 切换到命名工作空间 |
-| `/ws remove <name>` | 删除命名工作空间 |
-| `/status` | 当前 cwd / session / agent（卡片 + 按钮） |
-| `/config` | 调整偏好（消息回复方式、工具调用显示等） |
-| `/stop` | 终止当前正在跑的 run（也可点卡片底部 ⏹ 终止 按钮） |
-| `/timeout [N\|off\|default]` | 当前 session 的 idle 探活（分钟）；`/config` 改全局默认。详见下方"常见问题 — Claude 子进程假死" |
-| `/ps` | 列出本机所有 start 进程，标识当前回复的是哪个 |
-| `/exit <id\|#>` | 终止指定 start 进程（自己 = graceful 退出；他人 = SIGTERM） |
-| `/reconnect` | 强制重连 WebSocket（网络抖动后 bot 没反应时用） |
-| `/doctor [描述]` | 把最近运行日志和你的描述喂给 Claude，自助诊断卡住 / 异常的原因 |
+| `/new [name]` | 创建新群和新会话，继承当前 cwd，并邀请发送者 |
+| `/reset` | 清空当前 chat 会话 |
+| `/resume [N]` | 列出当前 cwd 下最近的 Codex sessions |
+| `/cd <path>` | 在 `FEISHU_CODEX_WORKSPACE_ROOT` 内切换 cwd，并重置 session |
+| `/ws list/save/use/remove` | 管理命名工作空间 |
+| `/status` | 查看 scope、cwd、session、agent 和 reasoning 设置 |
+| `/config` | 配置回复方式、工具显示、并发、timeout、reasoning effort 和访问控制 |
+| `/timeout [N|off|default]` | 覆盖当前 session 的 idle timeout |
+| `/stop` | 停止当前 Codex run |
+| `/ps` | 列出本机 bridge 进程 |
+| `/exit <id|#>` | 停止一个 bridge 进程 |
+| `/reconnect` | 强制重连飞书 / Lark WebSocket |
+| `/doctor [描述]` | 让 Codex 根据近期 bridge 日志自助诊断 |
+| `/account` | 查看或更换应用凭据 |
 | `/help` | 帮助卡片 |
-| 其它 `/xxx` | 原样交给 Claude |
 
-**消息策略**：私聊 = 不需要 @，任何消息都回；**群（含话题群）= 默认要 @bot 才回**（0.1.22 起的新默认），不 @ 时 bot 完全沉默；@全员永远不响应；云文档评论必须 @bot。要恢复"群里也不强制 @"的老行为：`/config` → "群里需要 @ bot" → 选"否"。
+私聊里普通消息都会响应。群和话题群默认只有 @ bot 才响应。
 
-## 数据目录
+## 本地配置
 
-| 路径 | 内容 |
+本地状态放在仓库外：
+
+| 路径 | 用途 |
 |---|---|
-| `~/.lark-channel/config.json` | 应用凭据（App ID / Secret），权限 600 |
-| `~/.lark-channel/sessions.json` | 每个 chat / 话题 的 Claude session id + cwd（+ 可选的 `/timeout` 覆盖） |
-| `~/.lark-channel/workspaces.json` | 工作空间映射 |
-| `~/.lark-channel/processes.json` | 当前在跑的 start 进程注册中心（`ps`/`stop` 用），死进程会被自动清理 |
-| `~/.lark-channel/media/<chatId>/` | 下载的图片 / 文件，24h 自动清理 |
-| `~/.lark-channel/logs/YYYY-MM-DD.log` | 结构化运行日志（JSON line），按天滚动；启动时清理超过 7 天的老文件（`LARK_CHANNEL_LOG_DAYS` 环境变量可改）；`/doctor` 命令读它做诊断 |
+| `~/.feishu-codex-bridge/config.json` | 应用配置和偏好 |
+| `~/.feishu-codex-bridge/secrets.enc` | 加密 App Secret |
+| `~/.feishu-codex-bridge/sessions.json` | chat/topic 到 Codex session 的映射 |
+| `~/.feishu-codex-bridge/workspaces.json` | 命名工作空间 |
+| `~/.feishu-codex-bridge/processes.json` | 运行中进程注册表 |
+| `~/.feishu-codex-bridge/media/<chatId>/` | 附件下载缓存 |
+| `~/.feishu-codex-bridge/logs/YYYY-MM-DD.log` | JSONL 结构化日志 |
 
-> 升级自 0.1.11 之前的版本？跑一次 `lark-channel-bridge migrate` —— 自动把 `~/.config/lark-channel-bridge/` 和 `~/.cache/lark-channel-bridge/` 下的内容搬到新位置，并把 `config.json` 升级到新结构。
+重要环境变量：
 
-## 访问控制（可选）
+| 变量 | 含义 |
+|---|---|
+| `CODEX_HOME` | Codex 配置目录。不设置时由 Codex CLI 使用自己的默认值。 |
+| `CODEX_BIN` | 自定义 Codex 可执行文件路径。 |
+| `FEISHU_CODEX_WORKSPACE_ROOT` | bot 允许 `/cd` 的最大文件系统根目录，默认是 bridge 进程 cwd。 |
+| `FEISHU_CODEX_BRIDGE_PROXY` | Windows helper 脚本使用的可选代理。 |
+| `HTTP_PROXY` / `HTTPS_PROXY` | Node 和 Codex 子进程继承的可选网络代理。 |
 
-默认 bot 是"开放"的：任何能找到它的人都能私聊它，群里 @bot 就触发响应。**个人自己用 / 给朋友用，这就够了**——但如果想给团队用、或者怕在大群里被滥用，可以在飞书里发 `/config`，调下面三栏中的一栏或几栏。
+## 安全提示
 
-### 几种典型用法
+- 不要提交 App Secret、Codex 登录态、cookie 或 `~/.feishu-codex-bridge`。
+- 把 `FEISHU_CODEX_WORKSPACE_ROOT` 设成 bot 真正需要访问的最小目录。
+- 邀请 bot 进共享群前，先在 `/config` 里设置管理员。
+- 群聊默认要求 @ bot，除非明确需要，否则不要关闭。
+- `/doctor` 会先清洗日志再交给 Codex，但日志仍可能包含运行元数据；只在可信会话里使用。
 
-**只让我自己用**
-
-`/config` 表单里：
-- "用户白名单"：填你自己的 `open_id`
-- 其它两栏留空
-
-之后非你发的消息会被 bot 静默丢弃——bot 不会回"你没权限"之类的话，免得暴露它存在。
-
-**只让一小群同事用**
-
-- "用户白名单"：填同事们的 `open_id`，英文逗号分隔
-- 其它两栏留空
-
-**bot 只在指定工作群里干活**
-
-私聊不受影响；群里只有名单上的群才触发响应：
-- "群白名单"：填想让 bot 工作的群 `chat_id`，英文逗号分隔
-- 私聊**永远**不受此约束——意味着你随时能 DM bot 调配置
-
-**谁都能跟 bot 聊，但只有我能改设置**
-
-- "管理员"：填你自己的 `open_id`
-- 其它两栏留空
-
-下次别人发 `/account` `/config` `/exit` `/reconnect` `/doctor` `/cd` `/ws` 这些敏感命令，会收到 `❌ 此命令仅管理员可用`。普通对话（让 bot 帮忙做事）不受影响。
-
-**完全收紧**
-
-三栏全填。`/config` 表单会拦下常见误配——比如管理员名单里没把你自己加进去、群白名单里没包含当前会话，提交时会被拒绝并提示原因，不会让你不小心把自己锁在外面。
-
-### 怎么找 `open_id` 和 `chat_id`
-
-最快的办法：让目标用户给 bot 发一条任意消息（群的话就 @bot 一下），然后在终端：
+## 开发
 
 ```bash
-grep '"event":"enter"' ~/.lark-channel/logs/$(date +%Y-%m-%d).log | tail -5
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+git diff --check
 ```
 
-每一行都带 `chatId`（= 群或私聊 ID）和 `senderId`（= 用户 `open_id`），照着复制就行。
-
-也可以查飞书开放平台的"获取用户信息"API，但要先给你的应用加 `contact:user` scope，没必要为了几个 ID 折腾。
-
-### 几点提醒
-
-- 改完 `/config` **下一条消息**就生效，不用重启
-- 把任何一栏设成**空字符串** = 不限制（不是"一个都不允许"）
-- 想从某种受限状态回到"完全开放"，把对应栏目清空再提交即可
-- 私聊不受"群白名单"约束——这是设计上故意的：万一你不小心把所有群都锁死了，**回到 bot 的私聊里发 `/config` 就能解锁**
-
-### 高级：直接改配置文件
-
-不太想登飞书也可以，`/config` 表单背后写的是 `~/.lark-channel/config.json` 的 `preferences.access`：
-
-```json
-{
-  "preferences": {
-    "access": {
-      "allowedUsers": ["ou_xxxxxxxxxxxxx"],
-      "allowedChats": ["oc_xxxxxxxxxxxxx"],
-      "admins":       ["ou_xxxxxxxxxxxxx"]
-    }
-  }
-}
-```
-
-手改完之后**重启 bridge** 或者**找一个被允许的会话发 `/reconnect`** 让新配置生效。日常调整还是用 `/config` 表单更省事，直接改文件主要用在"部署脚本里预填"之类的场景。
-
-## 常见问题
-
-**Claude 挂住不回复**：通常是 `claude` CLI 本身没登录，或者 session 指向了不存在的 cwd。发 `/status` 看当前状态；`/new` 重开会话往往就好。
-
-**Claude 子进程假死（卡片停在最后一帧不动）**：从 0.1.20 起支持 idle 探活：claude 一段时间没输出就被 SIGTERM kill，卡片末尾会标 "⏱ N 分钟无响应，已自动终止"。默认关闭。开启方式：`/config` 设全局值（分钟），或 `/timeout 10` 只对当前 session 生效；`/timeout off` 关掉某个 session 的探活；`/timeout default` 清掉 session 覆盖回退到全局。
-
-**图片发过去 Claude 说看不到**：升级到最新版，0.1.0 之前的版本有文件名去重 bug。
+GitHub Actions 会在 pull request 上运行同样的 typecheck、test 和 build。
 
 ## 许可
 

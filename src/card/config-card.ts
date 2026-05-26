@@ -1,4 +1,4 @@
-import type { MessageReplyMode } from '../config/schema';
+import { CODEX_REASONING_EFFORTS, type CodexReasoningEffort, type MessageReplyMode } from '../config/schema';
 
 export interface ConfigFormOpts {
   messageReply: MessageReplyMode;
@@ -6,6 +6,8 @@ export interface ConfigFormOpts {
   maxConcurrentRuns: number;
   /** 0 means "disabled". */
   runIdleTimeoutMinutes: number;
+  /** Undefined means inherit Codex config. */
+  codexReasoningEffort?: CodexReasoningEffort;
   requireMentionInGroup: boolean;
   /** Comma-separated open_id allowlist; empty string = unrestricted. */
   allowedUsers: string;
@@ -26,7 +28,7 @@ export function configFormCard(opts: ConfigFormOpts): object {
           tag: 'markdown',
           content:
             '⚙️ **偏好设置**\n\n' +
-            '调整 bot 的行为偏好。改完点提交,**立即生效**(无需重启)并写入 `~/.lark-channel/config.json`。',
+            '调整 bot 的行为偏好。改完点提交,**立即生效**(无需重启)并写入 `~/.feishu-codex-bridge/config.json`。',
         },
         { tag: 'hr' },
         {
@@ -100,6 +102,25 @@ export function configFormCard(opts: ConfigFormOpts): object {
             {
               tag: 'markdown',
               content:
+                '\n**Codex 推理强度**\n' +
+                '_默认:继承 CODEX_HOME/config.toml 的 model_reasoning_effort_\n' +
+                '_仅影响通过 bridge 发起的 Codex run,不会修改全局 Codex 配置_',
+            },
+            {
+              tag: 'select_static',
+              name: 'codex_reasoning_effort',
+              initial_option: opts.codexReasoningEffort ?? 'default',
+              options: [
+                { text: { tag: 'plain_text', content: '默认(继承 Codex 配置)' }, value: 'default' },
+                ...CODEX_REASONING_EFFORTS.map((value) => ({
+                  text: { tag: 'plain_text', content: value },
+                  value,
+                })),
+              ],
+            },
+            {
+              tag: 'markdown',
+              content:
                 '\n**群里需要 @ bot**\n' +
                 '_是(默认):群和话题群里,不 @ bot 的消息不会触发回复,bot 不接群里聊天_\n' +
                 '_否:任何消息都会发给 agent(0.1.21 及更早版本的行为)_\n' +
@@ -126,7 +147,7 @@ export function configFormCard(opts: ConfigFormOpts): object {
               content:
                 '\n**用户白名单**(`allowedUsers`)\n' +
                 '_只允许列表内的 open_id 跟 bot 交互。多个用英文逗号分隔。留空 = 不限制_\n' +
-                '_open_id 可从日志 `~/.lark-channel/logs/*.log` 里 grep `senderId` 字段_',
+                '_open_id 可从日志 `~/.feishu-codex-bridge/logs/*.log` 里 grep `senderId` 字段_',
             },
             {
               tag: 'input',
@@ -227,6 +248,7 @@ export function configSavedCard(opts: ConfigFormOpts): object {
             `**工具调用显示**:\`${opts.showToolCalls ? 'show' : 'hide'}\`\n` +
             `**并发上限**:\`${opts.maxConcurrentRuns}\`\n` +
             `**run 探活**:\`${opts.runIdleTimeoutMinutes > 0 ? `${opts.runIdleTimeoutMinutes} 分钟` : '关闭'}\`\n` +
+            `**Codex 推理强度**:\`${opts.codexReasoningEffort ?? '默认'}\`\n` +
             `**群里需要 @ bot**:\`${opts.requireMentionInGroup ? '是' : '否'}\`\n\n` +
             '🔒 **访问控制**\n' +
             `**用户白名单**:${summarizeList(opts.allowedUsers)}\n` +

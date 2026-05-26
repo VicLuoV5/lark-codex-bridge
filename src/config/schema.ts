@@ -4,7 +4,7 @@ export type TenantBrand = 'feishu' | 'lark';
  * SecretRef points at a secret stored outside this file — keeps secrets out
  * of `config.json` so backups / accidental git commits / log dumps don't
  * leak the bot's App Secret. Mirrors openclaw / lark-cli's `SecretRef`
- * shape so lark-cli's `--source lark-channel` reads it through the same
+ * shape so lark-cli's `--source feishu-codex-bridge` reads it through the same
  * generic `ResolveSecretInput` pipeline as openclaw.
  *
  *   - `env`:  value is in process env at `id` (optionally allowlisted via provider)
@@ -68,11 +68,14 @@ export interface SecretsConfig {
  */
 export type MessageReplyMode = 'card' | 'markdown' | 'text';
 
+export const CODEX_REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
+
 /**
  * Access control settings. All three lists default to "no restriction" when
  * empty / undefined, so existing deployments are not broken on upgrade.
  * Operators that want a hardened deployment fill these in via
- * `~/.lark-channel/config.json` (no CLI surface yet — by design, since
+ * `~/.feishu-codex-bridge/config.json` (no CLI surface yet — by design, since
  * persisting the lists requires the operator to look up open_ids/chat_ids
  * out-of-band anyway).
  */
@@ -103,28 +106,33 @@ export interface AppPreferences {
   messageReplyMigrated?: boolean;
   /**
    * Whether to render tool-call blocks (Bash / Read / Edit / ...) in the
-   * output. Default true. Turn off if you only care about Claude's final
+   * output. Default true. Turn off if you only care about Codex's final
    * text answer and want to hide the "工具调用过程".
    */
   showToolCalls?: boolean;
   /**
-   * Cap on concurrent claude runs across all chats / topics. Excess runs
+   * Cap on concurrent agent runs across all chats / topics. Excess runs
    * queue FIFO. Default 10. Mostly relevant for topic groups where each
    * topic can spawn its own run; capping protects RAM / token spend.
    */
   maxConcurrentRuns?: number;
   /**
-   * Global default idle-timeout for claude runs, in minutes. When set,
-   * if claude emits no stream event for this long the bridge kills the
+   * Global default idle-timeout for agent runs, in minutes. When set,
+   * if the agent emits no stream event for this long the bridge kills the
    * run as presumed-hung. Undefined / 0 = no timeout (the default — runs
    * can hang indefinitely). Per-scope `/timeout` overrides this.
    */
   runIdleTimeoutMinutes?: number;
   /**
+   * Optional bridge-scoped override for Codex CLI reasoning effort. When
+   * unset, Codex inherits `model_reasoning_effort` from CODEX_HOME config.
+   */
+  codexReasoningEffort?: CodexReasoningEffort;
+  /**
    * Whether the bot only responds to messages that @-mention it in groups
    * (regular and topic groups). p2p is always unrestricted. Default true:
    * groups are quiet unless the user @bot. Set false to let any group
-   * message reach Claude (the 0.1.21-and-earlier behavior).
+   * message reach Codex (the 0.1.21-and-earlier behavior).
    *
    * @全员 is never responded to regardless (SDK `respondToMentionAll: false`).
    * Cloud-doc comments still require @-mention unconditionally.
@@ -133,8 +141,8 @@ export interface AppPreferences {
   /** Access control — user/chat allowlists + admin gating. See AppAccess. */
   access?: AppAccess;
   /**
-   * Grace period (ms) between SIGTERM and SIGKILL when killing the claude
-   * subprocess. Bumped from a hardcoded 500ms because claude often has its
+   * Grace period (ms) between SIGTERM and SIGKILL when killing the agent
+   * subprocess. Bumped from a hardcoded 500ms because agents often have their
    * own subprocesses (e.g. lark-cli mid-OAuth) that need a moment to clean
    * up — too short a window and the SIGKILL cascade kills the descendants
    * before they can finish what the user is waiting on. Default 5000ms.
@@ -209,7 +217,7 @@ export function getShowToolCalls(cfg: AppConfig): boolean {
 export function getMaxConcurrentRuns(cfg: AppConfig): number {
   const raw = cfg.preferences?.maxConcurrentRuns;
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 1) return 10;
-  // Reasonable upper bound — at 50+ concurrent claudes the bot box is
+  // Reasonable upper bound — at 50+ concurrent runs the bot box is
   // probably already RAM-starved. Clamp to keep typos from killing the box.
   return Math.min(Math.floor(raw), 50);
 }
@@ -230,7 +238,7 @@ export function getRequireMentionInGroup(cfg: AppConfig): boolean {
  * the user didn't really mean.
  */
 /**
- * Grace period before SIGKILL fallback when stopping a claude subprocess.
+ * Grace period before SIGKILL fallback when stopping an agent subprocess.
  * Returns ms. Defaults to 5000 (5 seconds). Clamps to [100, 30000] so a
  * typo can't either make stop() effectively SIGKILL-immediate or hang for
  * minutes.
@@ -268,4 +276,13 @@ export function getRunIdleTimeoutMs(cfg: AppConfig): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return undefined;
   const clamped = Math.min(Math.max(Math.floor(raw), 1), 120);
   return clamped * 60_000;
+}
+
+export function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
+  return typeof value === 'string' && CODEX_REASONING_EFFORTS.includes(value as CodexReasoningEffort);
+}
+
+export function getCodexReasoningEffort(cfg: AppConfig): CodexReasoningEffort | undefined {
+  const raw = cfg.preferences?.codexReasoningEffort;
+  return isCodexReasoningEffort(raw) ? raw : undefined;
 }

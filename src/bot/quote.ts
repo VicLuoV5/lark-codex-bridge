@@ -133,7 +133,7 @@ export async function fetchQuotedContext(
         ? new Date(createMs).toISOString()
         : '',
       // For zero-text interactive cards the SDK gave us "[interactive card]"
-      // — substitute the raw JSON so Claude can still see what was quoted.
+      // — substitute the raw JSON so Codex can still see what was quoted.
       content: expandInteractiveCard(normalized.content, parent.body?.content),
       rawContentType: parent.msg_type ?? 'text',
     };

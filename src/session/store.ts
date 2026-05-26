@@ -37,7 +37,7 @@ export class SessionStore {
         // Drop entries without a `cwd`/`sessionId` pair *unless* there's
         // some other persisted state worth keeping (e.g. an idle-timeout
         // override). Resuming a session whose cwd we don't know about
-        // would hang claude on a missing jsonl, so resume keys still need
+        // would hang Codex on a missing jsonl, so resume keys still need
         // the full pair; but a bare timeout override is fine on its own.
         const sessionId = typeof entry.sessionId === 'string' ? entry.sessionId : undefined;
         const cwd = typeof entry.cwd === 'string' ? entry.cwd : undefined;
@@ -60,7 +60,7 @@ export class SessionStore {
 
   /**
    * Return the session id for this chat if it was created in the given cwd.
-   * Sessions recorded in a different cwd are stale — claude can't resume
+   * Sessions recorded in a different cwd are stale — Codex can't resume
    * them from a different working directory.
    */
   resumeFor(chatId: string, cwd: string): string | undefined {

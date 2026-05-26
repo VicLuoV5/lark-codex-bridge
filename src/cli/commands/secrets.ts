@@ -5,14 +5,14 @@ import { getSecret, listSecretIds, removeSecret, setSecret } from '../../config/
 /**
  * `secrets` CLI surface. Two intended consumers:
  *
- * 1. Humans: `lark-channel-bridge secrets set/list/remove` to manage the
+ * 1. Humans: `feishu-codex-bridge secrets set/list/remove` to manage the
  *    encrypted keystore manually.
  *
  * 2. lark-cli (and any other tool implementing openclaw's exec-provider
- *    protocol): `lark-channel-bridge secrets get` reads a JSON-RPC request
+ *    protocol): `feishu-codex-bridge secrets get` reads a JSON-RPC request
  *    from stdin and writes the decrypted secret to stdout. This is what
  *    `accounts.app.secret = { source: "exec", ... }` resolves through when
- *    lark-cli binds against ~/.lark-channel/config.json.
+ *    lark-cli binds against ~/.feishu-codex-bridge/config.json.
  */
 
 interface ExecRequest {
@@ -74,7 +74,7 @@ export async function runSecretsGet(): Promise<void> {
 
 export async function runSecretsSet(appId: string | undefined): Promise<void> {
   if (!appId) {
-    console.error('用法: lark-channel-bridge secrets set --app-id <id>');
+    console.error('用法: feishu-codex-bridge secrets set --app-id <id>');
     process.exit(1);
   }
   const id = `app-${appId}`;
@@ -84,7 +84,7 @@ export async function runSecretsSet(appId: string | undefined): Promise<void> {
     process.exit(1);
   }
   await setSecret(id, plaintext);
-  console.log(`✓ 已加密存到 ~/.lark-channel/secrets.enc`);
+  console.log(`✓ 已加密存到 ~/.feishu-codex-bridge/secrets.enc`);
 }
 
 export async function runSecretsList(): Promise<void> {
@@ -101,7 +101,7 @@ export async function runSecretsList(): Promise<void> {
 
 export async function runSecretsRemove(appId: string | undefined): Promise<void> {
   if (!appId) {
-    console.error('用法: lark-channel-bridge secrets remove --app-id <id>');
+    console.error('用法: feishu-codex-bridge secrets remove --app-id <id>');
     process.exit(1);
   }
   const id = `app-${appId}`;

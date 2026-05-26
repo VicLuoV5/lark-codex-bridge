@@ -23,7 +23,7 @@ export interface RunState {
   footer: FooterStatus;
   terminal: Terminal;
   errorMsg?: string;
-  /** Set when terminal === 'idle_timeout' — how long claude was idle before
+  /** Set when terminal === 'idle_timeout' — how long Codex was idle before
    * the watchdog gave up (so the message can say "N 分钟无响应"). */
   idleTimeoutMinutes?: number;
 }

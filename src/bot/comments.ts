@@ -106,7 +106,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
   });
   const prompt = buildCommentPrompt(target, ctx);
 
-  // One Claude session per cloud-doc; subsequent @-mentions in the same
+  // One Codex session per cloud-doc; subsequent @-mentions in the same
   // doc continue the same conversation. cwd defaults to $HOME — the agent
   // probably won't do filesystem work for doc replies but we keep a sane
   // default in case it does.
@@ -153,7 +153,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
           break;
       }
       // Don't wait for the subprocess to actually close stdout — break as soon
-      // as we have the final result. Some claude versions hang briefly post-
+      // as we have the final result. Some agent versions hang briefly post-
       // result on telemetry, which would leave the for-await stuck forever.
       if (terminal) break;
     }
@@ -161,7 +161,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
     await run.stop();
 
     let reply = stripMarkdown(answer.trim());
-    if (errorMsg) reply = `⚠️ Claude 报错：${errorMsg}`;
+    if (errorMsg) reply = `⚠️ Codex 报错：${errorMsg}`;
     if (!reply) reply = '（无回复内容）';
     if (reply.length > REPLY_MAX_CHARS) reply = `${reply.slice(0, REPLY_MAX_CHARS - 1)}…`;
 
@@ -293,7 +293,7 @@ async function findCommentViaList(
 }
 
 function buildCommentPrompt(target: ResolvedTarget, ctx: CommentContext): string {
-  // Construct a doc URL Claude can hand to lark-cli. The exact subdomain
+  // Construct a doc URL the agent can hand to lark-cli. The exact subdomain
   // depends on the user's tenant, but feishu.cn / larksuite.com generic
   // hosts redirect properly within the tenant.
   const docUrl = `https://feishu.cn/${target.fileType}/${target.fileToken}`;

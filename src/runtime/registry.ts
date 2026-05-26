@@ -6,7 +6,7 @@ import { paths } from '../config/paths';
 import type { TenantBrand } from '../config/schema';
 
 /**
- * Tracks running `lark-channel-bridge start` processes so we can:
+ * Tracks running `feishu-codex-bridge run` processes so we can:
  *   - Warn on duplicate `start` of the same app (open-platform routes events
  *     to one of N long-connections randomly, leaving users guessing).
  *   - Let users list (`ps` / `/ps`) and terminate (`stop <id>` / `/exit <id>`)
