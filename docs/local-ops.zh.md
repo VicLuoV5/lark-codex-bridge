@@ -7,7 +7,7 @@
 在 PowerShell 里进入仓库：
 
 ```powershell
-cd '<repo>\feishu-codex-bridge'
+cd '<repo>\lark-codex-bridge'
 ```
 
 查看状态：
@@ -85,7 +85,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\windows\uninstall-st
 1. 私聊 bot，发送 `/status`，应返回当前 cwd、agent 和 reasoning 设置。
 2. 私聊发送 `/reset`，再发送 `Reply exactly OK`，应收到 Codex 正常回复。
 3. 私聊发送 `/new 我的新任务`，应创建一个新群，并提示 cwd 已继承。
-4. 发送 `/cd <workspace-root>\feishu-codex-bridge`，应切换成功。
+4. 发送 `/cd <workspace-root>\lark-codex-bridge`，应切换成功。
 5. 发送 `/ws save bridge`，再发送 `/ws list`，应看到命名工作空间。
 6. 在群里 @ bot 发送简单问题，确认群里只在 @ 时响应。
 7. 发送 `/resume`，确认可以列出当前 cwd 的 Codex 会话。

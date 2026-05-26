@@ -1,4 +1,4 @@
-# feishu-codex-bridge
+# lark-codex-bridge
 
 A local Feishu / Lark bot that forwards chat messages to your local Codex CLI. It is designed for people who already use Codex on their own machine and want to trigger the same local agent from Feishu or Lark chats.
 
@@ -35,11 +35,11 @@ The first run can guide you through app registration by QR code. `lark-cli` is o
 
 ## Install
 
-From npm, once published:
+From npm:
 
 ```bash
-npm i -g feishu-codex-bridge
-feishu-codex-bridge --version
+npm i -g @vicluov5/lark-codex-bridge
+lark-codex-bridge --version
 ```
 
 From source:
@@ -48,7 +48,7 @@ From source:
 corepack enable
 corepack pnpm install
 corepack pnpm build
-node bin/feishu-codex-bridge.mjs --help
+node bin/lark-codex-bridge.mjs --help
 ```
 
 ## First Run
@@ -56,13 +56,13 @@ node bin/feishu-codex-bridge.mjs --help
 Run the bridge in the foreground:
 
 ```bash
-feishu-codex-bridge run
+lark-codex-bridge run
 ```
 
 Or from a source checkout:
 
 ```bash
-node bin/feishu-codex-bridge.mjs run
+node bin/lark-codex-bridge.mjs run
 ```
 
 On first run the bridge creates `~/.feishu-codex-bridge/config.json`. If no app credentials are present, it starts the QR-code registration wizard. Fresh App Secrets are moved into the encrypted local keystore at `~/.feishu-codex-bridge/secrets.enc`.
@@ -103,19 +103,19 @@ Optional event subscriptions:
 Foreground process commands:
 
 ```bash
-feishu-codex-bridge run [-c <config>]
-feishu-codex-bridge ps
-feishu-codex-bridge kill <id|#>
+lark-codex-bridge run [-c <config>]
+lark-codex-bridge ps
+lark-codex-bridge kill <id|#>
 ```
 
 Background service commands:
 
 ```bash
-feishu-codex-bridge start
-feishu-codex-bridge stop
-feishu-codex-bridge restart
-feishu-codex-bridge status
-feishu-codex-bridge unregister
+lark-codex-bridge start
+lark-codex-bridge stop
+lark-codex-bridge restart
+lark-codex-bridge status
+lark-codex-bridge unregister
 ```
 
 Service backends:

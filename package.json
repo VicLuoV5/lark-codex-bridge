@@ -1,10 +1,11 @@
 {
-  "name": "feishu-codex-bridge",
+  "name": "@vicluov5/lark-codex-bridge",
   "version": "0.1.32",
   "description": "Bridge Feishu/Lark messenger with the local Codex CLI",
   "packageManager": "pnpm@10.0.0",
   "type": "module",
   "bin": {
+    "lark-codex-bridge": "./bin/lark-codex-bridge.mjs",
     "feishu-codex-bridge": "./bin/feishu-codex-bridge.mjs"
   },
   "exports": {
@@ -43,6 +44,17 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VicLuoV5/lark-codex-bridge.git"
+  },
+  "homepage": "https://github.com/VicLuoV5/lark-codex-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/VicLuoV5/lark-codex-bridge/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "feishu",

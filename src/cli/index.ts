@@ -20,7 +20,7 @@ import { runStart } from './commands/start';
 const program = new Command();
 
 program
-  .name('feishu-codex-bridge')
+  .name('lark-codex-bridge')
   .description('Bridge Feishu/Lark messenger with local Codex')
   .version(pkg.version, '-v, --version');
 
@@ -93,7 +93,7 @@ const secrets = program
 
 secrets
   .command('get')
-  .description('Exec-provider protocol: read JSON request from stdin, write JSON response to stdout. Used by lark-cli config bind --source feishu-codex-bridge.')
+  .description('Exec-provider protocol: read JSON request from stdin, write JSON response to stdout. Used by lark-cli config bind --source lark-codex-bridge.')
   .action(async () => {
     await runSecretsGet();
   });
