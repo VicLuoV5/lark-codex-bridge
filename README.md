@@ -137,10 +137,10 @@ Do not start two bridge processes for the same Feishu/Lark app. Open-platform lo
 | `/ws list/save/use/remove` | Manage named workspaces |
 | `/status` | Show current scope, cwd, session, agent, and reasoning setting |
 | `/config` | Configure reply mode, tool display, concurrency, timeout, reasoning effort, and access control |
-| `/timeout [N|off|default]` | Override idle timeout for the current session |
+| `/timeout [N\|off\|default]` | Override idle timeout for the current session |
 | `/stop` | Stop the current Codex run |
 | `/ps` | List bridge processes on this host |
-| `/exit <id|#>` | Stop one bridge process |
+| `/exit <id\|#>` | Stop one bridge process |
 | `/reconnect` | Force a Feishu/Lark WebSocket reconnect |
 | `/doctor [description]` | Ask Codex to diagnose recent bridge logs |
 | `/account` | View or rotate app credentials |

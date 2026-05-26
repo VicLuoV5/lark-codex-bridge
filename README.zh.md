@@ -137,10 +137,10 @@ lark-codex-bridge unregister
 | `/ws list/save/use/remove` | 管理命名工作空间 |
 | `/status` | 查看 scope、cwd、session、agent 和 reasoning 设置 |
 | `/config` | 配置回复方式、工具显示、并发、timeout、reasoning effort 和访问控制 |
-| `/timeout [N|off|default]` | 覆盖当前 session 的 idle timeout |
+| `/timeout [N\|off\|default]` | 覆盖当前 session 的 idle timeout |
 | `/stop` | 停止当前 Codex run |
 | `/ps` | 列出本机 bridge 进程 |
-| `/exit <id|#>` | 停止一个 bridge 进程 |
+| `/exit <id\|#>` | 停止一个 bridge 进程 |
 | `/reconnect` | 强制重连飞书 / Lark WebSocket |
 | `/doctor [描述]` | 让 Codex 根据近期 bridge 日志自助诊断 |
 | `/account` | 查看或更换应用凭据 |
