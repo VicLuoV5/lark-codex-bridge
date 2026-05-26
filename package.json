@@ -2,6 +2,7 @@
   "name": "feishu-codex-bridge",
   "version": "0.1.32",
   "description": "Bridge Feishu/Lark messenger with the local Codex CLI",
+  "packageManager": "pnpm@10.0.0",
   "type": "module",
   "bin": {
     "feishu-codex-bridge": "./bin/feishu-codex-bridge.mjs"
