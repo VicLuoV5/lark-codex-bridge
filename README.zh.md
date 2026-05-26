@@ -38,7 +38,7 @@
 从 npm 安装：
 
 ```bash
-npm i -g @vicluov5/lark-codex-bridge
+npm i -g @vicluo/lark-codex-bridge
 lark-codex-bridge --version
 ```
 

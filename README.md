@@ -38,7 +38,7 @@ The first run can guide you through app registration by QR code. `lark-cli` is o
 From npm:
 
 ```bash
-npm i -g @vicluov5/lark-codex-bridge
+npm i -g @vicluo/lark-codex-bridge
 lark-codex-bridge --version
 ```
 
