@@ -71,6 +71,9 @@ export type MessageReplyMode = 'card' | 'markdown' | 'text';
 export const CODEX_REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
 
+export const CODEX_PERMISSION_MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan'] as const;
+export type CodexPermissionMode = (typeof CODEX_PERMISSION_MODES)[number];
+
 /**
  * Access control settings. All three lists default to "no restriction" when
  * empty / undefined, so existing deployments are not broken on upgrade.
@@ -128,6 +131,12 @@ export interface AppPreferences {
    * unset, Codex inherits `model_reasoning_effort` from CODEX_HOME config.
    */
   codexReasoningEffort?: CodexReasoningEffort;
+  /**
+   * Bridge-scoped Codex permission mode. `default` / unset keeps Codex in
+   * read-only sandbox. `acceptEdits` enables workspace-write for trusted
+   * personal deployments.
+   */
+  codexPermissionMode?: CodexPermissionMode;
   /**
    * Whether the bot only responds to messages that @-mention it in groups
    * (regular and topic groups). p2p is always unrestricted. Default true:
@@ -285,4 +294,13 @@ export function isCodexReasoningEffort(value: unknown): value is CodexReasoningE
 export function getCodexReasoningEffort(cfg: AppConfig): CodexReasoningEffort | undefined {
   const raw = cfg.preferences?.codexReasoningEffort;
   return isCodexReasoningEffort(raw) ? raw : undefined;
+}
+
+export function isCodexPermissionMode(value: unknown): value is CodexPermissionMode {
+  return typeof value === 'string' && CODEX_PERMISSION_MODES.includes(value as CodexPermissionMode);
+}
+
+export function getCodexPermissionMode(cfg: AppConfig): CodexPermissionMode | undefined {
+  const raw = cfg.preferences?.codexPermissionMode;
+  return isCodexPermissionMode(raw) ? raw : undefined;
 }

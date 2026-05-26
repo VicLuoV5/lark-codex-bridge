@@ -1,4 +1,10 @@
-import { CODEX_REASONING_EFFORTS, type CodexReasoningEffort, type MessageReplyMode } from '../config/schema';
+import {
+  CODEX_PERMISSION_MODES,
+  CODEX_REASONING_EFFORTS,
+  type CodexPermissionMode,
+  type CodexReasoningEffort,
+  type MessageReplyMode,
+} from '../config/schema';
 
 export interface ConfigFormOpts {
   messageReply: MessageReplyMode;
@@ -8,6 +14,8 @@ export interface ConfigFormOpts {
   runIdleTimeoutMinutes: number;
   /** Undefined means inherit Codex config. */
   codexReasoningEffort?: CodexReasoningEffort;
+  /** Undefined means read-only/default sandbox. */
+  codexPermissionMode?: CodexPermissionMode;
   requireMentionInGroup: boolean;
   /** Comma-separated open_id allowlist; empty string = unrestricted. */
   allowedUsers: string;
@@ -114,6 +122,28 @@ export function configFormCard(opts: ConfigFormOpts): object {
                 { text: { tag: 'plain_text', content: '默认(继承 Codex 配置)' }, value: 'default' },
                 ...CODEX_REASONING_EFFORTS.map((value) => ({
                   text: { tag: 'plain_text', content: value },
+                  value,
+                })),
+              ],
+            },
+            {
+              tag: 'markdown',
+              content:
+                '\n**Codex 文件权限**\n' +
+                '_只读:不会写文件。允许编辑:允许 Codex 在当前 workspace 内写文件_\n' +
+                '_建议个人自用设为允许编辑；公开群或多人 bot 保持只读_',
+            },
+            {
+              tag: 'select_static',
+              name: 'codex_permission_mode',
+              initial_option: opts.codexPermissionMode ?? 'default',
+              options: [
+                { text: { tag: 'plain_text', content: '只读(默认)' }, value: 'default' },
+                ...CODEX_PERMISSION_MODES.filter((value) => value !== 'default').map((value) => ({
+                  text: {
+                    tag: 'plain_text',
+                    content: value === 'acceptEdits' ? '允许编辑(workspace-write)' : value,
+                  },
                   value,
                 })),
               ],
@@ -249,6 +279,7 @@ export function configSavedCard(opts: ConfigFormOpts): object {
             `**并发上限**:\`${opts.maxConcurrentRuns}\`\n` +
             `**run 探活**:\`${opts.runIdleTimeoutMinutes > 0 ? `${opts.runIdleTimeoutMinutes} 分钟` : '关闭'}\`\n` +
             `**Codex 推理强度**:\`${opts.codexReasoningEffort ?? '默认'}\`\n` +
+            `**Codex 文件权限**:\`${opts.codexPermissionMode ?? '默认/只读'}\`\n` +
             `**群里需要 @ bot**:\`${opts.requireMentionInGroup ? '是' : '否'}\`\n\n` +
             '🔒 **访问控制**\n' +
             `**用户白名单**:${summarizeList(opts.allowedUsers)}\n` +

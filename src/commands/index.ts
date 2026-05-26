@@ -15,12 +15,14 @@ import { helpCard, resumeCard, statusCard, workspacesCard } from '../card/templa
 import type { AppConfig, MessageReplyMode, TenantBrand } from '../config/schema';
 import {
   getAgentStopGraceMs,
+  getCodexPermissionMode,
   getCodexReasoningEffort,
   getMaxConcurrentRuns,
   getMessageReplyMode,
   getRequireMentionInGroup,
   getRunIdleTimeoutMs,
   getShowToolCalls,
+  isCodexPermissionMode,
   isCodexReasoningEffort,
   isAdmin,
   secretKeyForApp,
@@ -399,6 +401,7 @@ async function handleStatus(_args: string, ctx: CommandContext): Promise<void> {
     sessionStale: Boolean(sess && sess.cwd !== cwd),
     agentName: ctx.agent.displayName,
     reasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
+    permissionMode: getCodexPermissionMode(ctx.controls.cfg),
     scope: ctx.scope,
     chatMode: ctx.chatMode,
   });
@@ -637,6 +640,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
     prompt,
     cwd: workspaceRoot(),
     reasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
+    permissionMode: getCodexPermissionMode(ctx.controls.cfg),
     stopGraceMs: getAgentStopGraceMs(ctx.controls.cfg),
   });
   const handle = ctx.activeRuns.register(ctx.scope, run);
@@ -909,6 +913,7 @@ async function showConfigForm(ctx: CommandContext): Promise<void> {
     maxConcurrentRuns: getMaxConcurrentRuns(ctx.controls.cfg),
     runIdleTimeoutMinutes: ms ? Math.round(ms / 60_000) : 0,
     codexReasoningEffort: getCodexReasoningEffort(ctx.controls.cfg),
+    codexPermissionMode: getCodexPermissionMode(ctx.controls.cfg),
     requireMentionInGroup: getRequireMentionInGroup(ctx.controls.cfg),
     allowedUsers: (access.allowedUsers ?? []).join(', '),
     allowedChats: (access.allowedChats ?? []).join(', '),
@@ -978,6 +983,14 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     codexReasoningEffort = undefined;
   } else if (isCodexReasoningEffort(rawReasoningEffort)) {
     codexReasoningEffort = rawReasoningEffort;
+  }
+
+  const rawPermissionMode = String(fv.codex_permission_mode ?? '').trim();
+  let codexPermissionMode = getCodexPermissionMode(ctx.controls.cfg);
+  if (rawPermissionMode === 'default') {
+    codexPermissionMode = undefined;
+  } else if (isCodexPermissionMode(rawPermissionMode)) {
+    codexPermissionMode = rawPermissionMode;
   }
 
   // Parse access lists. Comma-separated; trim each, drop empties, dedupe.
@@ -1066,6 +1079,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       maxConcurrentRuns,
       runIdleTimeoutMinutes,
       codexReasoningEffort,
+      codexPermissionMode,
       requireMentionInGroup,
       // Empty arrays serialize fine but read identically to omitted ones
       // (isUserAllowed / isAdmin both treat length===0 as unrestricted).
@@ -1088,6 +1102,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       maxConcurrentRuns,
       runIdleTimeoutMinutes,
       codexReasoningEffort: codexReasoningEffort ?? 'default',
+      codexPermissionMode: codexPermissionMode ?? 'default',
       requireMentionInGroup,
       allowedUsersCount: allowedUsers.length,
       allowedChatsCount: allowedChats.length,
@@ -1103,6 +1118,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
         maxConcurrentRuns,
         runIdleTimeoutMinutes,
         codexReasoningEffort,
+        codexPermissionMode,
         requireMentionInGroup,
         allowedUsers: allowedUsers.join(', '),
         allowedChats: allowedChats.join(', '),

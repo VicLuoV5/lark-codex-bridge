@@ -20,6 +20,7 @@ import { tryHandleCommand, type Controls } from '../commands';
 import type { AppConfig } from '../config/schema';
 import {
   getAgentStopGraceMs,
+  getCodexPermissionMode,
   getCodexReasoningEffort,
   getMaxConcurrentRuns,
   getMessageReplyMode,
@@ -515,6 +516,7 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     prompt,
     sessionId: resumeFrom,
     cwd,
+    permissionMode: getCodexPermissionMode(controls.cfg),
     reasoningEffort: getCodexReasoningEffort(controls.cfg),
     stopGraceMs: getAgentStopGraceMs(controls.cfg),
   });

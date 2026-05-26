@@ -1,4 +1,4 @@
-import type { CodexReasoningEffort } from '../config/schema';
+import type { CodexPermissionMode, CodexReasoningEffort } from '../config/schema';
 
 export type AgentEvent =
   | { type: 'system'; sessionId?: string; cwd?: string; model?: string }
@@ -16,7 +16,7 @@ export interface AgentRunOptions {
   sessionId?: string;
   model?: string;
   reasoningEffort?: CodexReasoningEffort;
-  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+  permissionMode?: CodexPermissionMode;
   /**
    * Grace period (ms) between SIGTERM and SIGKILL when stop() is called on
    * the returned run. Lets the agent (and any subprocess it spawned, e.g.
