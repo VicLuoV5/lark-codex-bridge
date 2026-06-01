@@ -131,7 +131,7 @@ export function configFormCard(opts: ConfigFormOpts): object {
               content:
                 '\n**Codex 文件权限**\n' +
                 '_只读:不会写文件。允许编辑:允许 Codex 在当前 workspace 内写文件_\n' +
-                '_建议个人自用设为允许编辑；公开群或多人 bot 保持只读_',
+                '_全盘访问:允许 Codex 访问整机文件系统,只建议短期个人排障使用_',
             },
             {
               tag: 'select_static',
@@ -142,7 +142,12 @@ export function configFormCard(opts: ConfigFormOpts): object {
                 ...CODEX_PERMISSION_MODES.filter((value) => value !== 'default').map((value) => ({
                   text: {
                     tag: 'plain_text',
-                    content: value === 'acceptEdits' ? '允许编辑(workspace-write)' : value,
+                    content:
+                      value === 'acceptEdits'
+                        ? '允许编辑(workspace-write)'
+                        : value === 'bypassPermissions'
+                          ? '全盘访问(danger-full-access)'
+                          : value,
                   },
                   value,
                 })),

@@ -10,6 +10,7 @@ describe('Windows daemon launcher', () => {
     });
 
     expect(script).toContain(':watchdog');
+    expect(script).toContain('if exist "%APPDATA%\\npm" set "PATH=%APPDATA%\\npm;%PATH%"');
     expect(script).toContain('timeout /t 60 /nobreak');
     expect(script).toContain('goto watchdog');
   });

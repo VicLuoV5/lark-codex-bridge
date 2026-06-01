@@ -35,6 +35,7 @@ export function buildLauncherCmd(inputs: LauncherInputs): string {
   return [
     '@echo off',
     `set "PATH=${inputs.envPath}"`,
+    'if exist "%APPDATA%\\npm" set "PATH=%APPDATA%\\npm;%PATH%"',
     'set "BRIDGE_WATCHDOG_SECONDS=60"',
     ':watchdog',
     `>> "${daemonStdoutPath()}" echo [bridge-watchdog] starting bridge %DATE% %TIME%`,

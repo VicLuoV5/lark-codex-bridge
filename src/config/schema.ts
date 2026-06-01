@@ -134,7 +134,8 @@ export interface AppPreferences {
   /**
    * Bridge-scoped Codex permission mode. `default` / unset keeps Codex in
    * read-only sandbox. `acceptEdits` enables workspace-write for trusted
-   * personal deployments.
+   * personal deployments. `bypassPermissions` maps to Codex
+   * danger-full-access and should only be used briefly on a trusted machine.
    */
   codexPermissionMode?: CodexPermissionMode;
   /**

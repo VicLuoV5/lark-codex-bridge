@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.feishu-codex-bridge-tools/
 *.log
 *.tsbuildinfo
 

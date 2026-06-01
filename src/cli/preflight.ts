@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import * as p from '@clack/prompts';
+import { withWindowsNpmGlobalBin } from '../runtime/path-env';
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 const BIND_TIMEOUT_MS = 30 * 1000;
@@ -120,7 +121,9 @@ function printInstallFailedWarning(): void {
 
 function isLarkCliInstalled(): boolean {
   try {
-    const result = spawnSync(commandFor('lark-cli', ['--version']).cmd, commandFor('lark-cli', ['--version']).args, {
+    const command = commandFor('lark-cli', ['--version']);
+    const result = spawnSync(command.cmd, command.args, {
+      env: withWindowsNpmGlobalBin({ ...process.env }),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     return result.status === 0;
@@ -152,6 +155,7 @@ async function runCapture(
   const exitCode = await new Promise<number | null>((resolve) => {
     const command = commandFor(cmd, args);
     const child = spawn(command.cmd, command.args, {
+      env: withWindowsNpmGlobalBin({ ...process.env }),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: onWindows,
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildArgs } from '../src/agent/codex/adapter';
+import { buildArgs, extraSandboxDirsForPermissionMode } from '../src/agent/codex/adapter';
 import {
   getCodexPermissionMode,
   getCodexReasoningEffort,
@@ -47,5 +47,39 @@ describe('Codex run options', () => {
 
     expect(args).toContain('--sandbox');
     expect(args).toContain('workspace-write');
+  });
+
+  it('does not expose the user npm bin directly for editable runs', () => {
+    expect(
+      extraSandboxDirsForPermissionMode(
+        'acceptEdits',
+        { APPDATA: 'C:\\Users\\Me\\AppData\\Roaming' },
+        'win32',
+      ),
+    ).toEqual([]);
+  });
+
+  it('adds runtime tool shims to the Codex sandbox when provided', () => {
+    const args = buildArgs(
+      {
+        prompt: 'hi',
+        permissionMode: 'acceptEdits',
+      },
+      ['D:\\workspace\\.feishu-codex-bridge-tools'],
+    );
+
+    expect(args).toContain('--add-dir');
+    expect(args).toContain('D:\\workspace\\.feishu-codex-bridge-tools');
+  });
+
+  it('maps bypass permission mode to Codex danger-full-access', () => {
+    const args = buildArgs({
+      prompt: 'hi',
+      permissionMode: 'bypassPermissions',
+    });
+
+    expect(args).toContain('--sandbox');
+    expect(args).toContain('danger-full-access');
+    expect(args).not.toContain('--add-dir');
   });
 });

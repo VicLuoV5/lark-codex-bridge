@@ -33,6 +33,8 @@
 
 首次运行可以通过二维码向导创建或绑定应用。`lark-cli` 不是普通聊天的硬依赖，但建议安装；Codex 需要操作飞书文档、消息、日历等 API 时会用到它。
 
+Windows 上如果用户名包含中文或空格，Codex 沙箱可能无法稳定解析全局 npm 路径。bridge 会在工作区根目录生成 `.feishu-codex-bridge-tools/` 作为运行时 shim，并根据全局 `@larksuite/cli` 的版本和二进制元数据自动同步。
+
 ## 安装
 
 从 npm 安装：
@@ -161,6 +163,7 @@ lark-codex-bridge unregister
 | `~/.feishu-codex-bridge/processes.json` | 运行中进程注册表 |
 | `~/.feishu-codex-bridge/media/<chatId>/` | 附件下载缓存 |
 | `~/.feishu-codex-bridge/logs/YYYY-MM-DD.log` | JSONL 结构化日志 |
+| `<workspace-root>/.feishu-codex-bridge-tools/` | Windows 下给 Codex 使用的 `lark-cli` 运行时 shim；由全局 `@larksuite/cli` 自动同步，不要手工编辑或提交 |
 
 重要环境变量：
 

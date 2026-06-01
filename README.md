@@ -33,6 +33,8 @@ It does not require an OpenAI API key or a Claude API key. Codex runs through yo
 
 The first run can guide you through app registration by QR code. `lark-cli` is optional but recommended; the bridge uses it so Codex can call Feishu/Lark APIs from local tool runs.
 
+On Windows, Codex sandbox commands may not reliably resolve global npm paths when the user profile path contains non-ASCII characters or spaces. The bridge creates a workspace-local `.feishu-codex-bridge-tools/` runtime shim and keeps it synchronized from the globally installed `@larksuite/cli` version and binary metadata.
+
 ## Install
 
 From npm:
@@ -161,6 +163,7 @@ Local state lives outside the repository:
 | `~/.feishu-codex-bridge/processes.json` | Live process registry |
 | `~/.feishu-codex-bridge/media/<chatId>/` | Downloaded attachment cache |
 | `~/.feishu-codex-bridge/logs/YYYY-MM-DD.log` | Structured JSONL logs |
+| `<workspace-root>/.feishu-codex-bridge-tools/` | Windows runtime `lark-cli` shim for Codex; auto-synced from global `@larksuite/cli`, do not edit or commit |
 
 Important environment variables:
 

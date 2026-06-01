@@ -56,6 +56,34 @@ function Invoke-BridgeCli {
   & node $Cli @Arguments
 }
 
+function Stop-BridgeLauncherProcesses {
+  $launchers = @()
+  try {
+    $launchers = @(
+      Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" |
+        Where-Object {
+          $_.CommandLine -like '*run-bridge.cmd*' -and
+          $_.CommandLine -like '*feishu-codex-bridge*'
+        }
+    )
+  } catch {
+    Write-Warning "Could not inspect existing bridge launcher processes: $($_.Exception.Message)"
+    return
+  }
+
+  foreach ($launcher in $launchers) {
+    if ([int]$launcher.ProcessId -eq $PID) {
+      continue
+    }
+    Write-Host "Stopping existing bridge launcher process $($launcher.ProcessId)..."
+    Stop-Process -Id ([int]$launcher.ProcessId) -Force -ErrorAction SilentlyContinue
+  }
+
+  if ($launchers.Count -gt 0) {
+    Start-Sleep -Seconds 1
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 $live = @(Get-LiveBridgeEntries)
@@ -72,12 +100,17 @@ if ($live.Count -gt 0) {
   }
 }
 
+Stop-BridgeLauncherProcesses
+
 $node = (Get-Command node -ErrorAction Stop).Source
 $launcherContent = @"
 @echo off
 set "BRIDGE_LOG_DIR=%USERPROFILE%\.feishu-codex-bridge\logs"
 set "CODEX_HOME=$CodexHome"
 set "FEISHU_CODEX_WORKSPACE_ROOT=$WorkspaceRoot"
+if exist "%APPDATA%\npm" (
+  set "PATH=%APPDATA%\npm;%PATH%"
+)
 if not "$ProxyUrl"=="" (
   set "HTTP_PROXY=$ProxyUrl"
   set "HTTPS_PROXY=$ProxyUrl"

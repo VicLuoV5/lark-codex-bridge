@@ -3,6 +3,8 @@ import { spawn, type SpawnOptions } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 import { log } from '../../core/logger';
+import { ensureLarkCliShim, type LarkCliShim } from '../../runtime/lark-cli-shim';
+import { withWindowsNpmGlobalBin } from '../../runtime/path-env';
 import { workspaceRoot } from '../../workspace/guard';
 import type { AgentAdapter, AgentEvent, AgentRun, AgentRunOptions } from '../types';
 import { translateCodexEvent } from './stream-json';
@@ -68,6 +70,7 @@ export class CodexAdapter implements AgentAdapter {
   async isAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
       const child = spawnCodex(this.binary, ['--version'], {
+        env: withWindowsNpmGlobalBin({ ...process.env }),
         stdio: 'ignore',
       });
       child.on('error', () => resolve(false));
@@ -77,13 +80,20 @@ export class CodexAdapter implements AgentAdapter {
 
   run(opts: AgentRunOptions): AgentRun {
     const cwd = opts.cwd ?? workspaceRoot();
-    const args = buildArgs(opts);
+    const larkCli = ensureLarkCliShim(workspaceRoot());
+    const args = buildArgs(opts, larkCli ? [larkCli.toolsDir] : []);
+    const env = withWindowsNpmGlobalBin({ ...process.env });
+    if (larkCli) {
+      env.Path = prependEnvPath(env.Path ?? env.PATH ?? env.path ?? '', larkCli.toolsDir);
+      env.FEISHU_CODEX_LARK_CLI = larkCli.commandPath;
+    }
+    env.FEISHU_CODEX_BRIDGE = '1';
     const child = spawnCodex(this.binary, args, {
       cwd,
-      env: { ...process.env, FEISHU_CODEX_BRIDGE: '1' },
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    child.stdin.end(`${promptFor(opts)}\n`);
+    child.stdin.end(`${promptFor(opts, larkCli)}\n`);
 
     log.info('agent', 'spawn', {
       pid: child.pid ?? null,
@@ -93,6 +103,7 @@ export class CodexAdapter implements AgentAdapter {
       model: opts.model,
       reasoningEffort: opts.reasoningEffort,
       binary: this.binary,
+      larkCli: larkCli?.commandPath,
     });
 
     const stderrChunks: Buffer[] = [];
@@ -182,7 +193,7 @@ function quoteCmdArg(arg: string): string {
   return `"${arg.replace(/(["^&|<>()%])/g, '^$1')}"`;
 }
 
-export function buildArgs(opts: AgentRunOptions): string[] {
+export function buildArgs(opts: AgentRunOptions, extraSandboxDirs: string[] = []): string[] {
   const sandbox = sandboxForPermissionMode(opts.permissionMode);
   const base = [
     'exec',
@@ -191,6 +202,9 @@ export function buildArgs(opts: AgentRunOptions): string[] {
     sandbox,
     '--skip-git-repo-check',
   ];
+  for (const dir of [...extraSandboxDirsForPermissionMode(opts.permissionMode), ...extraSandboxDirs]) {
+    base.push('--add-dir', dir);
+  }
   if (opts.model) base.push('--model', opts.model);
   if (opts.reasoningEffort) {
     base.push('-c', `model_reasoning_effort="${opts.reasoningEffort}"`);
@@ -203,13 +217,39 @@ export function buildArgs(opts: AgentRunOptions): string[] {
   return base;
 }
 
-function promptFor(opts: AgentRunOptions): string {
-  return `${BRIDGE_PROMPT}\n\n${opts.prompt}`;
+function promptFor(opts: AgentRunOptions, larkCli?: LarkCliShim): string {
+  return `${BRIDGE_PROMPT}${larkCliPrompt(larkCli)}\n\n${opts.prompt}`;
 }
 
 function sandboxForPermissionMode(mode: AgentRunOptions['permissionMode']): string {
-  if (mode === 'acceptEdits' || mode === 'bypassPermissions') return 'workspace-write';
+  if (mode === 'bypassPermissions') return 'danger-full-access';
+  if (mode === 'acceptEdits') return 'workspace-write';
   return 'read-only';
+}
+
+export function extraSandboxDirsForPermissionMode(
+  mode: AgentRunOptions['permissionMode'],
+  _env: NodeJS.ProcessEnv = process.env,
+  _platform = process.platform,
+): string[] {
+  if (mode !== 'acceptEdits') return [];
+  return [];
+}
+
+function larkCliPrompt(larkCli: LarkCliShim | undefined): string {
+  if (!larkCli) return '';
+  return `
+
+## lark-cli 可执行入口
+bridge 已准备好一个工作区内的 lark-cli 入口，优先使用这个精确路径：
+
+\`${larkCli.commandPath}\`
+
+Windows 下 Codex 沙箱里的 PATH / APPDATA 可能无法解析中文用户名路径。不要只因为 \`Get-Command lark-cli\` 或 \`where lark-cli\` 失败就判断 lark-cli 不可用；先尝试上面的工作区入口。`;
+}
+
+function prependEnvPath(pathValue: string, segment: string): string {
+  return pathValue ? `${segment};${pathValue}` : segment;
 }
 
 async function* createEventStream(
